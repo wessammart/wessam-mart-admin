@@ -1019,8 +1019,11 @@
         if (!username || !email || !password) { alert('أدخل جميع الحقول المطلوبة'); return; }
         if (password.length < 8) { alert('كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
         try {
-          // التحقق من عدم تكرار اسم المستخدم (من المصفوفة المحلية)
-          if (staffUsernames.includes(username)) { alert('اسم المستخدم موجود مسبقاً'); return; }
+          // التحقق من عدم تكرار اسم المستخدم (من المصفوفة المحلية + تأكيد من Firestore)
+          if (staffUsernames.includes(username)) {
+            const confirmQuery = await db.collection('staff').where('username', '==', username).get();
+            if (!confirmQuery.empty) { alert('اسم المستخدم موجود مسبقاً'); return; }
+          }
           // حفظ بيانات المشرف في Firestore (تسجيل الدخول عبر Firestore وليس Firebase Auth)
           const hashedPassword = await _hashPassword(password);
           await db.collection('staff').add({
@@ -1047,8 +1050,11 @@
         if (!username || !email || !password || !fullName || !phone) { alert('أدخل جميع الحقول المطلوبة'); return; }
         if (password.length < 8) { alert('كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
         try {
-          // التحقق من عدم تكرار اسم المستخدم (من المصفوفة المحلية)
-          if (allDeliveryBoys.some(d => d.username === username)) { alert('اسم المستخدم موجود مسبقاً'); return; }
+          // التحقق من عدم تكرار اسم المستخدم (من المصفوفة المحلية + تأكيد من Firestore)
+          if (allDeliveryBoys.some(d => d.username === username)) {
+            const confirmQuery = await db.collection('deliveryBoys').where('username', '==', username).get();
+            if (!confirmQuery.empty) { alert('اسم المستخدم موجود مسبقاً'); return; }
+          }
           // حفظ بيانات الموصل في Firestore مع كلمة مرور مشفرة (تسجيل الدخول عبر Firestore وليس Firebase Auth)
           const hashedPassword = await _hashPassword(password);
           await db.collection('deliveryBoys').add({
