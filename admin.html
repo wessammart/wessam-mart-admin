@@ -1019,16 +1019,6 @@
         if (!username || !email || !password) { alert('أدخل جميع الحقول المطلوبة'); return; }
         if (password.length < 8) { alert('كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
         try {
-          // التحقق من عدم تكرار اسم المستخدم
-          try {
-            const existingStaff = await db.collection('staff').where('username', '==', username).get();
-            if (!existingStaff.empty) {
-              alert(`اسم المستخدم "${username}" مستخدم مسبقاً في النظام`);
-              return;
-            }
-          } catch (checkErr) {
-            // إذا فشل الاستعلام (WebChannel/الحصة) — نتجاوز الفحص اليدوي
-          }
           // حفظ بيانات المشرف في Firestore (تسجيل الدخول عبر Firestore وليس Firebase Auth)
           const hashedPassword = await _hashPassword(password);
           await db.collection('staff').add({
