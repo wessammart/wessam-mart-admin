@@ -801,7 +801,27 @@
       setupImagePreview(document.getElementById('pImageFile'), 'addImagePreview', 'addPreviewImg');
       setupImagePreview(document.getElementById('editImageFile'), 'editImagePreview', 'editPreviewImg');
 
-      window.handleAddProduct = async (e) => { e.preventDefault(); const btn = document.getElementById('addBtn'), fileInput = document.getElementById('pImageFile'); if (!fileInput.files[0]) { alert("الرجاء اختيار صورة المنتج"); return; } btn.textContent = 'جاري تحويل الصورة...'; btn.disabled = true; try { const imageBase64 = await convertImageToBase64(fileInput.files[0]); let selectedStoreType = document.getElementById('pStoreType').value; if (currentUserRole === 'manager' && currentUserStoreId) selectedStoreType = currentUserStoreId; const optionName = document.getElementById('pOptionName').value.trim(), optionValuesStr = document.getElementById('pOptionValues').value.trim(), optionsArray = optionValuesStr ? optionValuesStr.split(',').map(v => v.trim()).filter(v => v) : []; await db.collection('products').add({ storeType: selectedStoreType, name: document.getElementById('pName').value, price: document.getElementById('pPrice').value, image: imageBase64, outOfStock: false, optionName: optionName || null, options: optionsArray }); e.target.reset(); document.getElementById('pImageFile').value = ''; document.getElementById('addImagePreview').classList.add('hidden'); alert('تم إضافة المنتج بنجاح ✅'); } catch (err) { alert('خطأ: ' + err.message); } finally { btn.textContent = 'إضافة المنتج'; btn.disabled = false; } };
+      window.handleAddProduct = async (e) => {
+        e.preventDefault(); const btn=document.getElementById('addBtn'), fi=document.getElementById('pImageFile');
+        if (!fi.files[0]) { alert("الرجاء اختيار صورة المنتج"); return; }
+        btn.textContent='جاري تحويل الصورة...'; btn.disabled=true;
+        try {
+          const imageBase64=await convertImageToBase64(fi.files[0]);
+          let st=document.getElementById('pStoreType').value;
+          if (currentUserRole==='manager'&&currentUserStoreId) st=currentUserStoreId;
+          const on=document.getElementById('pOptionName').value.trim(), ov=document.getElementById('pOptionValues').value.trim(), oa=ov?ov.split(',').map(v=>v.trim()).filter(v=>v):[];
+          // REST API لإضافة المنتج (SDK يعلق على GitHub Pages)
+          const f={storeType:{stringValue:st},name:{stringValue:document.getElementById('pName').value},price:{stringValue:document.getElementById('pPrice').value},image:{stringValue:imageBase64},outOfStock:{booleanValue:false}};
+          if (on) f.optionName={stringValue:on};
+          if (oa.length) f.options={arrayValue:{values:oa.map(v=>({stringValue:v}))}};
+          const r=await fetch(`https://firestore.googleapis.com/v1/projects/wessam2/databases/(default)/documents/products?key=AIzaSyBGM-ORvTV4juxPfiA8Mb7Vb25_0EQchEY`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:f})});
+          const d=await r.json();
+          if (d.error) throw new Error(d.error.message);
+          e.target.reset(); document.getElementById('pImageFile').value=''; document.getElementById('addImagePreview').classList.add('hidden');
+          alert('تم إضافة المنتج بنجاح ✅');
+        } catch(err) { alert('خطأ: '+err.message); }
+        finally { btn.textContent='إضافة المنتج';btn.disabled=false; }
+      };
 
       window.handleUpdateProduct = async (e) => { e.preventDefault(); const id = document.getElementById('editId').value, fileInput = document.getElementById('editImageFile'); let imageUrl = document.getElementById('editImage').value; if (fileInput.files[0]) { const btn = e.target.querySelector('button[type="submit"]'); btn.textContent = 'جاري تحويل الصورة...'; btn.disabled = true; try { imageUrl = await convertImageToBase64(fileInput.files[0]); } catch (err) { alert('خطأ: ' + err.message); btn.disabled = false; return; } btn.disabled = false; } let storeTypeToUpdate = document.getElementById('editStoreType').value; if (currentUserRole === 'manager' && currentUserStoreId) storeTypeToUpdate = currentUserStoreId; const optionName = document.getElementById('editOptionName').value.trim(), optionValuesStr = document.getElementById('editOptionValues').value.trim(), optionsArray = optionValuesStr ? optionValuesStr.split(',').map(v => v.trim()).filter(v => v) : [], outOfStockStatus = document.getElementById('editOutOfStock').checked; try { await db.collection('products').doc(id).update({ storeType: storeTypeToUpdate, name: document.getElementById('editName').value, price: document.getElementById('editPrice').value, image: imageUrl, optionName: optionName || null, options: optionsArray, outOfStock: outOfStockStatus }); closeEditModal(); alert('تم تحديث المنتج بنجاح ✅'); } catch (err) { alert('خطأ: ' + err.message); } };
 
