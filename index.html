@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 
 <head>
@@ -995,7 +995,6 @@
 
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <script>
@@ -1010,17 +1009,19 @@
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const auth = firebase.auth();
+        db.settings({ experimentalForceLongPolling: true, merge: true });
 
         let currentDriver = null;
         let currentDriverId = null;
         let ordersUnsub = null;
         let allProducts = [];
 
-        // جلب المنتجات مرة واحدة
-        db.collection('products').onSnapshot(snap => {
-            allProducts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        });
+        // جلب المنتجات مرة واحدة مع تحديث كل 30 ثانية
+        async function loadProducts() {
+            try { const snap = await db.collection('products').get(); allProducts = snap.docs.map(d => ({ id: d.id, ...d.data() })); } catch(e) { console.error(e); }
+        }
+        loadProducts();
+        setInterval(loadProducts, 30000);
 
         // Toast
         function toast(msg, isErr) {
@@ -1052,11 +1053,11 @@
         }
         window.closeChatModal = closeChatModal;
 
-        function listenChatMessages(orderId) {
-            if (chatUnsubscribe) chatUnsubscribe();
-            chatUnsubscribe = db.collection('chats').doc(orderId).collection('messages')
-                .orderBy('time', 'asc')
-                .onSnapshot(snap => {
+        async function listenChatMessages(orderId) {
+            if (chatUnsubscribe) { clearInterval(chatUnsubscribe); chatUnsubscribe = null; }
+            async function loadChat() {
+                try {
+                    const snap = await db.collection('chats').doc(orderId).collection('messages').orderBy('time', 'asc').get();
                     const container = document.getElementById('chatMessages');
                     if (snap.empty) {
                         container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:8px;">لا توجد رسائل بعد</div>';
@@ -1072,7 +1073,10 @@
                         </div>`;
                     }).join('');
                     container.scrollTop = container.scrollHeight;
-                });
+                } catch(e) { console.error(e); }
+            }
+            loadChat();
+            chatUnsubscribe = setInterval(loadChat, 30000);
         }
 
         window.sendDriverMessage = async () => {
@@ -1214,19 +1218,21 @@
             document.getElementById('ordersList').innerHTML = '';
         }
 
-        // Listen to orders in real-time
+        // Listen to orders with polling (no onSnapshot)
         function listenOrders() {
-            if (ordersUnsub) ordersUnsub();
-            ordersUnsub = db.collection('orders')
-                .where('deliveryBoyId', '==', currentDriverId)
-                .onSnapshot(snap => {
+            if (ordersUnsub) { clearInterval(ordersUnsub); ordersUnsub = null; }
+            async function refreshOrders() {
+                try {
+                    const snap = await db.collection('orders').where('deliveryBoyId', '==', currentDriverId).get();
                     const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    // Sort: pending/assigned first, then delivering, then delivered, then completed
                     const priority = { pending: 0, assigned: 0, delivering: 1, delivered: 2, completed: 3 };
                     orders.sort((a, b) => (priority[a.status] || 0) - (priority[b.status] || 0));
                     updateStats(orders);
                     renderOrders(orders);
-                });
+                } catch(e) { console.error(e); }
+            }
+            refreshOrders();
+            ordersUnsub = setInterval(refreshOrders, 30000);
         }
 
         // Stats
@@ -1440,3 +1446,4 @@
 </body>
 
 </html>
+
